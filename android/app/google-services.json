@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "220251270425",
+    "project_id": "eureka-8b9b2",
+    "storage_bucket": "eureka-8b9b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220251270425:android:cafb2569048610a501e988",
+        "android_client_info": {
+          "package_name": "com.example.eureka"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "220251270425-u85996nc8cdjag85404e393ortfl0cq7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.eureka",
+            "certificate_hash": "4e308f3bd248af74a79ce5acdb9d152b14e47003"
+          }
+        },
+        {
+          "client_id": "220251270425-f5mvlgdabidfdj9bq21loop9916k6th5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBj0Ehbv6HHYdPzJ0mTDncTrSEzqFUWw2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "220251270425-f5mvlgdabidfdj9bq21loop9916k6th5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

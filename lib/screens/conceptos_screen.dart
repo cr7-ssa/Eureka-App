@@ -10,22 +10,18 @@ class ConceptosScreen extends StatefulWidget {
 }
 
 class _ConceptosScreenState extends State<ConceptosScreen> {
+  final _formKey = GlobalKey<FormState>();
   final nombre = TextEditingController();
   final monto = TextEditingController();
   final currencyFormat = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
 
   Future<void> agregar() async {
-    if (nombre.text.isEmpty || monto.text.isEmpty) return;
+    if (!_formKey.currentState!.validate()) return;
 
-    final existe = await FirebaseFirestore.instance
-        .collection('concepts').where('nombre', isEqualTo: nombre.text.trim()).get();
+    final existe = await FirebaseFirestore.instance.collection('concepts').where('nombre', isEqualTo: nombre.text.trim()).get();
 
     if (existe.docs.isNotEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(' Ya existe un concepto con ese nombre'), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Ya existe un concepto con ese nombre'), backgroundColor: Colors.red));
       return;
     }
 
@@ -56,17 +52,10 @@ class _ConceptosScreenState extends State<ConceptosScreen> {
             itemCount: docs.length,
             itemBuilder: (context, i) {
               final d = docs[i].data() as Map<String, dynamic>;
-              
-              // PROTECCIÓN CONTRA NULLS Y TEXTOS RAROS
               final nombreConcepto = d['nombre'] ?? 'Sin nombre';
               double montoSeguro = 0.0;
-              if (d['monto'] != null) {
-                if (d['monto'] is num) {
-                  montoSeguro = d['monto'].toDouble();
-                } else if (d['monto'] is String) {
-                  montoSeguro = double.tryParse(d['monto']) ?? 0.0;
-                }
-              }
+              if (d['monto'] is num) montoSeguro = d['monto'].toDouble();
+              if (d['monto'] is String) montoSeguro = double.tryParse(d['monto']) ?? 0.0;
               
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -86,12 +75,32 @@ class _ConceptosScreenState extends State<ConceptosScreen> {
             context: context,
             builder: (_) => AlertDialog(
               title: const Text('Nuevo Concepto'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(controller: nombre, decoration: const InputDecoration(labelText: 'Nombre del concepto')),
-                  TextField(controller: monto, decoration: const InputDecoration(labelText: 'Monto (solo números)', prefixText: '\$ '), keyboardType: TextInputType.number),
-                ],
+              content: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nombre, 
+                      decoration: const InputDecoration(labelText: 'Nombre del concepto'),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Obligatorio';
+                        if (!RegExp(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]+$').hasMatch(v)) return 'Solo letras y números';
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: monto, 
+                      decoration: const InputDecoration(labelText: 'Monto', prefixText: '\$ '), 
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Obligatorio';
+                        if (double.tryParse(v) == null) return 'Monto inválido';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),

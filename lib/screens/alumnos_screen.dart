@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../models/student.dart';
+import '../services/student_service.dart';
 import 'alumno_form_screen.dart';
 import 'alumno_detalle_screen.dart';
 
@@ -11,6 +13,7 @@ class AlumnosScreen extends StatefulWidget {
 }
 
 class _AlumnosScreenState extends State<AlumnosScreen> {
+  final StudentService _studentService = StudentService();
   String busqueda = '';
   String? filtroGrado;
   String? filtroGrupo;
@@ -31,7 +34,7 @@ class _AlumnosScreenState extends State<AlumnosScreen> {
                 hintText: 'Buscar alumno...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.grey.shade200,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
               ),
               onChanged: (v) => setState(() => busqueda = v.toLowerCase().trim()),
@@ -72,40 +75,30 @@ class _AlumnosScreenState extends State<AlumnosScreen> {
           ),
 
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('students').where('activo', isEqualTo: true).snapshots(),
+            child: StreamBuilder<List<Student>>(
+              // AQUÍ USAMOS LA CAPA DE SERVICIOS
+              stream: _studentService.getStudents(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 
-                final docs = snapshot.data!.docs.where((d) {
-                  final data = d.data() as Map<String, dynamic>;
-                  // PROTECCIÓN CONTRA NULLS EN LA BÚSQUEDA
-                  final nombre = (data['nombre'] ?? '').toString().toLowerCase();
-                  final apellidos = (data['apellidos'] ?? '').toString().toLowerCase();
-                  final matricula = (data['matricula'] ?? '').toString().toLowerCase();
-                  
-                  bool coincideTexto = nombre.contains(busqueda) || apellidos.contains(busqueda) || matricula.contains(busqueda);
-                  bool coincideGrado = filtroGrado == null || data['grado'] == filtroGrado;
-                  bool coincideGrupo = filtroGrupo == null || data['grupo'] == filtroGrupo;
+                // Filtrado en memoria (Capa de presentación)
+                final alumnos = snapshot.data!.where((alumno) {
+                  bool coincideTexto = alumno.nombre.toLowerCase().contains(busqueda) || 
+                                       alumno.apellidos.toLowerCase().contains(busqueda) ||
+                                       alumno.matricula.toLowerCase().contains(busqueda);
+                  bool coincideGrado = filtroGrado == null || alumno.grado == filtroGrado;
+                  bool coincideGrupo = filtroGrupo == null || alumno.grupo == filtroGrupo;
 
                   return coincideTexto && coincideGrado && coincideGrupo;
                 }).toList();
 
-                if (docs.isEmpty) return const Center(child: Text('No hay alumnos que coincidan'));
+                if (alumnos.isEmpty) return const Center(child: Text('No hay alumnos que coincidan'));
 
                 return ListView.builder(
-                  itemCount: docs.length,
+                  itemCount: alumnos.length,
                   itemBuilder: (context, i) {
-                    final data = docs[i].data() as Map<String, dynamic>;
-                    final id = docs[i].id;
-                    
-                    // PROTECCIÓN CONTRA NULLS EN LA VISTA
-                    final nombre = data['nombre'] ?? 'Sin nombre';
-                    final apellidos = data['apellidos'] ?? '';
-                    final grado = data['grado'] ?? '-';
-                    final grupo = data['grupo'] ?? '-';
-                    final matricula = data['matricula'] ?? 'S/M';
-                    final inicial = nombre.toString().isNotEmpty ? nombre.toString()[0].toUpperCase() : '?';
+                    final alumno = alumnos[i];
+                    final inicial = alumno.nombre.isNotEmpty ? alumno.nombre[0].toUpperCase() : '?';
                     
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -114,10 +107,10 @@ class _AlumnosScreenState extends State<AlumnosScreen> {
                           backgroundColor: const Color(0xFF1E6F5C),
                           child: Text(inicial, style: const TextStyle(color: Colors.white)),
                         ),
-                        title: Text('$nombre $apellidos', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('$grado "$grupo" | Mat: $matricula'),
+                        title: Text('${alumno.nombre} ${alumno.apellidos}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${alumno.grado} "${alumno.grupo}" | Mat: ${alumno.matricula}'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AlumnoDetalleScreen(alumnoId: id))),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AlumnoDetalleScreen(alumnoId: alumno.id))),
                       ),
                     );
                   },
