@@ -36,6 +36,85 @@ class _ConceptosScreenState extends State<ConceptosScreen> {
     if (mounted) Navigator.pop(context);
   }
 
+  Future<void> editar(String id, String nombreActual, double montoActual) async {
+    nombre.text = nombreActual;
+    monto.text = montoActual.toString();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar Concepto'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nombre,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Obligatorio';
+                  // VALIDACIÓN DE NOMBRE
+                  if (!RegExp(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]+$').hasMatch(v)) return 'Solo letras y números';
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: monto,
+                decoration: const InputDecoration(labelText: 'Monto', prefixText: '\$ '),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                // VALIDACIÓN DE MONTO
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Obligatorio';
+                  if (double.tryParse(v) == null) return 'Monto inválido';
+                  if (double.parse(v) <= 0) return 'El monto debe ser mayor a 0';
+                  if (double.parse(v) > 1000000) return 'Máximo \$1,000,000';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              if (!_formKey.currentState!.validate()) return;
+              await FirebaseFirestore.instance.collection('concepts').doc(id).update({
+                'nombre': nombre.text.trim(),
+                'monto': double.tryParse(monto.text) ?? 0,
+              });
+              nombre.clear();
+              monto.clear();
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> eliminar(String id) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar concepto?'),
+        content: const Text('Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance.collection('concepts').doc(id).delete();
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,6 +142,16 @@ class _ConceptosScreenState extends State<ConceptosScreen> {
                   leading: const Icon(Icons.receipt, color: Color(0xFF1E6F5C)),
                   title: Text(nombreConcepto, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('Monto: ${currencyFormat.format(montoSeguro)}'),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'editar') editar(docs[i].id, nombreConcepto, montoSeguro);
+                      if (value == 'eliminar') eliminar(docs[i].id);
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'editar', child: Text('Editar')),
+                      const PopupMenuItem(value: 'eliminar', child: Text('Eliminar', style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
                 ),
               );
             },
@@ -71,6 +160,8 @@ class _ConceptosScreenState extends State<ConceptosScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
+          nombre.clear();
+          monto.clear();
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -94,8 +185,10 @@ class _ConceptosScreenState extends State<ConceptosScreen> {
                       decoration: const InputDecoration(labelText: 'Monto', prefixText: '\$ '), 
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Obligatorio';
+                        if (v == null || v.trim().isEmpty) return 'Obligatorio';
                         if (double.tryParse(v) == null) return 'Monto inválido';
+                        if (double.parse(v) <= 0) return 'El monto debe ser mayor a 0';
+                        if (double.parse(v) > 1000000) return 'Máximo \$1,000,000';
                         return null;
                       },
                     ),
