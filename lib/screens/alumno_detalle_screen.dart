@@ -105,7 +105,19 @@ class _AlumnoDetalleScreenState extends State<AlumnoDetalleScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Cuenta creada.\nCorreo: $email\nContraseña: $passwordDefault'), backgroundColor: Colors.green, duration: const Duration(seconds: 5)));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+      if (mounted) {
+        // Traducir el error de Firebase a un mensaje amigable
+        String mensajeError = 'Error al crear la cuenta.';
+        if (e.toString().contains('email-already-in-use')) {
+          mensajeError = '⚠️ Este correo ya tiene una cuenta creada.';
+        } else if (e.toString().contains('invalid-email')) {
+          mensajeError = '⚠️ El correo no es válido.';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mensajeError), backgroundColor: Colors.orange),
+        );
+      }
     } finally {
       if (mounted) setState(() => creandoCuenta = false);
     }

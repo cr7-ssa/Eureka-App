@@ -14,13 +14,20 @@ class _RegistroScreenState extends State<RegistroScreen> {
   final nombreController = TextEditingController();
   final correoController = TextEditingController();
   final passController = TextEditingController();
+  final confirmPassController = TextEditingController();
   
   bool cargando = false;
   bool verPassword = false;
+  bool verConfirmPassword = false;
   String? error;
 
   Future<void> registrar() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (passController.text != confirmPassController.text) {
+      setState(() => error = '❌ Las contraseñas no coinciden.');
+      return;
+    }
 
     setState(() { cargando = true; error = null; });
 
@@ -29,6 +36,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
         email: correoController.text.trim(),
         password: passController.text.trim(),
       );
+
+      await cred.user!.sendEmailVerification();
 
       await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set({
         'nombre': nombreController.text.trim(),
@@ -40,7 +49,11 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Cuenta creada. Contacta a la escuela para vincular a tu hijo.'), backgroundColor: Colors.green, duration: Duration(seconds: 5)),
+        const SnackBar(
+          content: Text('✅ Cuenta creada. Revisa tu correo y la carpeta de SPAM para verificarla.'), 
+          backgroundColor: Colors.green, 
+          duration: Duration(seconds: 6)
+        ),
       );
 
       Navigator.pop(context); 
@@ -50,14 +63,14 @@ class _RegistroScreenState extends State<RegistroScreen> {
         if (e.code == 'email-already-in-use') {
           error = '❌ Este correo ya está registrado.';
         } else if (e.code == 'weak-password') {
-          error = '❌ La contraseña debe tener al menos 6 caracteres.';
+          error = '❌ La contraseña es muy débil.';
         } else {
           error = '❌ Error: ${e.message}';
         }
         cargando = false;
       });
     } catch (e) {
-      setState(() { error = 'Error: $e'; cargando = false; });
+      setState(() { error = 'Error de conexión.'; cargando = false; });
     }
   }
 
@@ -94,7 +107,10 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.email)),
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Escribe tu correo';
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Correo inválido';
+                      // VALIDACIÓN ESTRICTA DE CORREO
+                      if (!RegExp(r'^[a-zA-Z0-9._%+-]{3,}@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(v)) {
+                        return 'Correo inválido (ej. nombre@dominio.com)';
+                      }
                       return null;
                     },
                   ),
@@ -111,9 +127,47 @@ class _RegistroScreenState extends State<RegistroScreen> {
                         onPressed: () => setState(() => verPassword = !verPassword),
                       ),
                     ),
+                    onChanged: (v) => setState(() {}),
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Escribe una contraseña';
-                      if (v.length < 6) return 'Mínimo 6 caracteres';
+                      if (v.length < 8) return 'Mínimo 8 caracteres';
+                      if (!v.contains(RegExp(r'[A-Z]'))) return 'Falta una mayúscula';
+                      if (!v.contains(RegExp(r'[a-z]'))) return 'Falta una minúscula';
+                      if (!v.contains(RegExp(r'[0-9]'))) return 'Falta un número';
+                      if (!v.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) return 'Falta un símbolo (!@#\$)';
+                      return null;
+                    },
+                  ),
+                  
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _textoRequisito('Mínimo 8 caracteres', passController.text.length >= 8),
+                        _textoRequisito('Una letra mayúscula', passController.text.contains(RegExp(r'[A-Z]'))),
+                        _textoRequisito('Una letra minúscula', passController.text.contains(RegExp(r'[a-z]'))),
+                        _textoRequisito('Un número', passController.text.contains(RegExp(r'[0-9]'))),
+                        _textoRequisito('Un símbolo (!@#\$%)', passController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  TextFormField(
+                    controller: confirmPassController,
+                    obscureText: !verConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar contraseña',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(verConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => verConfirmPassword = !verConfirmPassword),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Confirma tu contraseña';
                       return null;
                     },
                   ),
@@ -144,6 +198,16 @@ class _RegistroScreenState extends State<RegistroScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _textoRequisito(String texto, bool cumplido) {
+    return Row(
+      children: [
+        Icon(cumplido ? Icons.check_circle : Icons.circle_outlined, size: 16, color: cumplido ? Colors.green : Colors.grey),
+        const SizedBox(width: 8),
+        Text(texto, style: TextStyle(color: cumplido ? Colors.green : Colors.grey, fontSize: 12)),
+      ],
     );
   }
 }

@@ -13,7 +13,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
   final _formKey = GlobalKey<FormState>();
   final tituloController = TextEditingController();
   final mensajeController = TextEditingController();
-  String? gradoSeleccionado; // null significa "Todos"
+  String? gradoSeleccionado; 
   String? grupoSeleccionado;
   bool cargando = false;
 
@@ -22,14 +22,13 @@ class _AvisosScreenState extends State<AvisosScreen> {
 
   Future<void> _crearAviso() async {
     if (!_formKey.currentState!.validate()) return;
-    
     setState(() => cargando = true);
 
     try {
       await FirebaseFirestore.instance.collection('avisos').add({
         'titulo': tituloController.text.trim(),
         'mensaje': mensajeController.text.trim(),
-        'grado': gradoSeleccionado, 
+        'grado': gradoSeleccionado,
         'grupo': grupoSeleccionado,
         'fecha': FieldValue.serverTimestamp(),
         'autor': 'Administrador',
@@ -46,6 +45,77 @@ class _AvisosScreenState extends State<AvisosScreen> {
     }
   }
 
+  Future<void> _editarAviso(String id, String titulo, String mensaje, String? grado, String? grupo) async {
+    tituloController.text = titulo;
+    mensajeController.text = mensaje;
+    gradoSeleccionado = grado;
+    grupoSeleccionado = grupo;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar Aviso'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: tituloController, 
+                maxLength: 50, // LÍMITE DE TÍTULO
+                decoration: const InputDecoration(labelText: 'Título', counterText: ""), 
+                validator: (v) => v!.isEmpty ? 'Obligatorio' : null
+              ),
+              TextFormField(
+                controller: mensajeController, 
+                maxLength: 200, // LÍMITE DE MENSAJE
+                maxLines: 3, 
+                decoration: const InputDecoration(labelText: 'Mensaje'), 
+                validator: (v) => v!.isEmpty ? 'Obligatorio' : null
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              if (!_formKey.currentState!.validate()) return;
+              await FirebaseFirestore.instance.collection('avisos').doc(id).update({
+                'titulo': tituloController.text.trim(),
+                'mensaje': mensajeController.text.trim(),
+                'grado': gradoSeleccionado,
+                'grupo': grupoSeleccionado,
+              });
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _eliminarAviso(String id) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar aviso?'),
+        content: const Text('Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance.collection('avisos').doc(id).delete();
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,7 +128,13 @@ class _AvisosScreenState extends State<AvisosScreen> {
               width: double.infinity,
               height: 50,
               child: FilledButton.icon(
-                onPressed: () => _mostrarFormularioAviso(),
+                onPressed: () {
+                  tituloController.clear();
+                  mensajeController.clear();
+                  gradoSeleccionado = null;
+                  grupoSeleccionado = null;
+                  _mostrarFormularioAviso();
+                },
                 icon: const Icon(Icons.add_alert),
                 label: const Text('Crear Nuevo Aviso'),
               ),
@@ -98,6 +174,16 @@ class _AvisosScreenState extends State<AvisosScreen> {
                             Text('Para: $dirigidoA | ${fecha != null ? DateFormat('dd/MM/yyyy').format(fecha) : ''}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           ],
                         ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'editar') _editarAviso(avisos[i].id, data['titulo'] ?? '', data['mensaje'] ?? '', grado, grupo);
+                            if (value == 'eliminar') _eliminarAviso(avisos[i].id);
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'editar', child: Text('Editar')),
+                            const PopupMenuItem(value: 'eliminar', child: Text('Eliminar', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -127,12 +213,14 @@ class _AvisosScreenState extends State<AvisosScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: tituloController,
-                  decoration: const InputDecoration(labelText: 'Título del aviso'),
+                  maxLength: 50, // LÍMITE DE TÍTULO
+                  decoration: const InputDecoration(labelText: 'Título del aviso', counterText: ""),
                   validator: (v) => v!.isEmpty ? 'Escribe un título' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: mensajeController,
+                  maxLength: 200, // LÍMITE DE MENSAJE
                   maxLines: 3,
                   decoration: const InputDecoration(labelText: 'Mensaje'),
                   validator: (v) => v!.isEmpty ? 'Escribe el mensaje' : null,
@@ -143,7 +231,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: gradoSeleccionado,
+                        initialValue: gradoSeleccionado,
                         hint: const Text('Todos los grados'),
                         items: grados.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                         onChanged: (v) => setState(() => gradoSeleccionado = v),
@@ -152,7 +240,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: grupoSeleccionado,
+                        initialValue: grupoSeleccionado,
                         hint: const Text('Todos'),
                         items: grupos.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                         onChanged: (v) => setState(() => grupoSeleccionado = v),

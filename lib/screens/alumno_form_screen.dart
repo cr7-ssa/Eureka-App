@@ -116,7 +116,9 @@ class _AlumnoFormScreenState extends State<AlumnoFormScreen> {
                 decoration: const InputDecoration(labelText: 'Matrícula (Única)', border: OutlineInputBorder()),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Campo obligatorio';
-                  if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(v)) return 'Solo letras y números';
+                  // VALIDACIÓN ESTRICTA DE MATRÍCULA
+                  if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(v)) return 'Solo letras y números (sin espacios ni símbolos)';
+                  if (v.length > 15) return 'Máximo 15 caracteres';
                   return null;
                 },
               ),
@@ -136,7 +138,7 @@ class _AlumnoFormScreenState extends State<AlumnoFormScreen> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: gradoSeleccionado, // <-- CORREGIDO AQUÍ
+                      initialValue: gradoSeleccionado,
                       decoration: const InputDecoration(labelText: 'Grado', border: OutlineInputBorder()),
                       items: grados.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                       onChanged: (v) => setState(() => gradoSeleccionado = v),
@@ -145,7 +147,7 @@ class _AlumnoFormScreenState extends State<AlumnoFormScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: grupoSeleccionado, // <-- CORREGIDO AQUÍ
+                      initialValue: grupoSeleccionado,
                       decoration: const InputDecoration(labelText: 'Grupo', border: OutlineInputBorder()),
                       items: grupos.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                       onChanged: (v) => setState(() => grupoSeleccionado = v),
